@@ -4,3 +4,4 @@ out/
 *.vsix
 demo/test.qmd
 demo/test copy.qmd
+.marketplace_acces

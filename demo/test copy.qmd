@@ -1,7 +1,0 @@
-.docname {test copy}
-# My First Quarkdown Document
-## これは、サブタイトルです。
-## Only English?
-### どうでしょうか？
-- これは、リストです。
-- This is a list.

@@ -46,9 +46,7 @@ async function executeQuarkdownCommand(command, filePath, outputDir) {
   const resolvedFilePath = path.resolve(filePath);
   let fullCommand = `${quarkdownPath} c ${command} "${resolvedFilePath}"`;
   if (outputDir) {
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
+    await fs.promises.mkdir(outputDir, { recursive: true });
     const resolvedOutputDir = path.resolve(outputDir);
     fullCommand = `${quarkdownPath} c ${command} -o "${resolvedOutputDir}" "${resolvedFilePath}"`;
   }
@@ -151,9 +149,7 @@ function activate(context) {
     const filePath = editor.document.fileName;
     const fileDir = path.dirname(filePath);
     const outputBaseDir = path.join(fileDir, "output");
-    if (!fs.existsSync(outputBaseDir)) {
-      fs.mkdirSync(outputBaseDir, { recursive: true });
-    }
+    await fs.promises.mkdir(outputBaseDir, { recursive: true });
     let expectedOutputFolderName = "Untitled-Quarkdown-Document";
     const documentText = editor.document.getText();
     const docnameMatch = documentText.match(/^\.docname\s*\{\s*([^}]+)\s*\}/m);
@@ -204,9 +200,7 @@ function activate(context) {
     const filePath = editor.document.fileName;
     const fileDir = path.dirname(filePath);
     const outputBaseDir = path.join(fileDir, "output");
-    if (!fs.existsSync(outputBaseDir)) {
-      fs.mkdirSync(outputBaseDir, { recursive: true });
-    }
+    await fs.promises.mkdir(outputBaseDir, { recursive: true });
     let expectedOutputFolderName = "Untitled-Quarkdown-Document";
     const documentText = editor.document.getText();
     const docnameMatch = documentText.match(/^\.docname\s*\{\s*([^}]+)\s*\}/m);
@@ -237,9 +231,7 @@ function activate(context) {
     const filePath = editor.document.fileName;
     const fileDir = path.dirname(filePath);
     const outputBaseDir = path.join(fileDir, "output");
-    if (!fs.existsSync(outputBaseDir)) {
-      fs.mkdirSync(outputBaseDir, { recursive: true });
-    }
+    await fs.promises.mkdir(outputBaseDir, { recursive: true });
     let expectedOutputFolderName = "Untitled-Quarkdown-Document";
     const documentText = editor.document.getText();
     const docnameMatch = documentText.match(/^\.docname\s*\{\s*([^}]+)\s*\}/m);

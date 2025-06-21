@@ -19,9 +19,7 @@ async function executeQuarkdownCommand(command: string, filePath: string, output
 
     if (outputDir) {
         // Ensure the output directory exists using the original outputDir
-        if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
-        }
+        await fs.promises.mkdir(outputDir, { recursive: true });
         // Always resolve outputDir to an absolute path before passing to external command
         const resolvedOutputDir = path.resolve(outputDir);
         fullCommand = `${quarkdownPath} c ${command} -o "${resolvedOutputDir}" "${resolvedFilePath}"`;
@@ -154,9 +152,7 @@ export function activate(context: vscode.ExtensionContext) {
         const outputBaseDir = path.join(fileDir, 'output'); // output ディレクトリのベースパス
 
         // Ensure the output base directory exists
-        if (!fs.existsSync(outputBaseDir)) {
-            fs.mkdirSync(outputBaseDir, { recursive: true });
-        }
+        await fs.promises.mkdir(outputBaseDir, { recursive: true });
 
         // Determine the expected output folder name based on .docname or default
         let expectedOutputFolderName = 'Untitled-Quarkdown-Document'; // Default if .docname not found
@@ -222,9 +218,7 @@ export function activate(context: vscode.ExtensionContext) {
         const outputBaseDir = path.join(fileDir, 'output'); // Base output directory
 
         // Ensure the output base directory exists
-        if (!fs.existsSync(outputBaseDir)) {
-            fs.mkdirSync(outputBaseDir, { recursive: true });
-        }
+        await fs.promises.mkdir(outputBaseDir, { recursive: true });
 
         // Determine the expected output folder name based on .docname or default
         let expectedOutputFolderName = 'Untitled-Quarkdown-Document'; // Default if .docname not found
@@ -264,9 +258,7 @@ export function activate(context: vscode.ExtensionContext) {
         const outputBaseDir = path.join(fileDir, 'output'); // Base output directory
 
         // Ensure the output base directory exists
-        if (!fs.existsSync(outputBaseDir)) {
-            fs.mkdirSync(outputBaseDir, { recursive: true });
-        }
+        await fs.promises.mkdir(outputBaseDir, { recursive: true });
 
         // Determine the expected output folder name based on .docname or default
         let expectedOutputFolderName = 'Untitled-Quarkdown-Document'; // Default if .docname not found

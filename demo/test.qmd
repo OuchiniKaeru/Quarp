@@ -1,0 +1,14 @@
+.docname {test}
+.theme {darko} layout:{minimal}
+.autopagebreak maxdepth:{2}
+
+# My First Quarkdown Document
+## これは、テストのサブタイトルです。
+## Only English?
+### どうでしょうか？
+- これは、リストです。
+- This is a list.
+- This is a list.
+- This is a list.
+- This is a list.
+- This is a list.

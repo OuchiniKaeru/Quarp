@@ -1,0 +1,105 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Quarkdown",
+  "patterns": [
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#headings"
+    },
+    {
+      "include": "#bold"
+    },
+    {
+      "include": "#italic"
+    }
+  ],
+  "repository": {
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.quarkdown",
+          "match": "\\b(import|include|section|slide|page)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.quarkdown",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.quarkdown",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.quarkdown",
+          "match": "//.*"
+        },
+        {
+          "name": "comment.block.quarkdown",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "headings": {
+      "patterns": [
+        {
+          "name": "entity.name.section.markdown",
+          "match": "^(#{1,6})\\s.*$"
+        }
+      ]
+    },
+    "bold": {
+      "patterns": [
+        {
+          "name": "markup.bold.markdown",
+          "begin": "\\*\\*",
+          "end": "\\*\\*",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.bold.markdown"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.bold.markdown"
+            }
+          }
+        }
+      ]
+    },
+    "italic": {
+      "patterns": [
+        {
+          "name": "markup.italic.markdown",
+          "begin": "\\*",
+          "end": "\\*",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.italic.markdown"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.italic.markdown"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "scopeName": "source.qmd"
+}

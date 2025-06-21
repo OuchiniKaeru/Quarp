@@ -43,14 +43,14 @@ function getQuarkdownPath() {
 }
 async function executeQuarkdownCommand(command, filePath, outputDir) {
   const quarkdownPath = getQuarkdownPath();
-  filePath = path.resolve(filePath);
-  let fullCommand = `${quarkdownPath} c ${command} "${filePath}"`;
+  const resolvedFilePath = path.resolve(filePath);
+  let fullCommand = `${quarkdownPath} c ${command} "${resolvedFilePath}"`;
   if (outputDir) {
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
-    outputDir = path.resolve(outputDir);
-    fullCommand = `${quarkdownPath} c ${command} -o "${outputDir}" "${filePath}"`;
+    const resolvedOutputDir = path.resolve(outputDir);
+    fullCommand = `${quarkdownPath} c ${command} -o "${resolvedOutputDir}" "${resolvedFilePath}"`;
   }
   return new Promise((resolve2, reject) => {
     (0, import_child_process.exec)(fullCommand, (error, stdout, stderr) => {
@@ -68,6 +68,74 @@ ${stderr}`);
     });
   });
 }
+async function getUncPathForDrive(driveLetter) {
+  return new Promise((resolve2) => {
+    (0, import_child_process.exec)("wmic path win32_mappedlogicaldisk get DeviceID,ProviderName /format:list", (error, stdout, stderr) => {
+      if (error) {
+        console.warn(`Error getting mapped drives: ${error.message}`);
+        return resolve2(null);
+      }
+      const lines = stdout.split("\n");
+      for (const line of lines) {
+        const deviceIdMatch = line.match(/DeviceID=([A-Z]:)/i);
+        const providerNameMatch = line.match(/ProviderName=(.*)/);
+        if (deviceIdMatch && providerNameMatch && deviceIdMatch[1].toUpperCase() === driveLetter.toUpperCase()) {
+          const providerName = providerNameMatch[1].trim();
+          return resolve2(providerName);
+        }
+      }
+      resolve2(null);
+    });
+  });
+}
+async function getPotentialSubfolderPaths(baseDir, subfolderName, fileName) {
+  const paths = [];
+  const resolvedBaseDir = path.resolve(baseDir);
+  const specificOutputDirFromResolvedBase = path.join(resolvedBaseDir, subfolderName);
+  paths.push(path.resolve(path.join(specificOutputDirFromResolvedBase, fileName)));
+  const driveLetterMatch = resolvedBaseDir.match(/^([a-zA-Z]):\\/);
+  if (driveLetterMatch) {
+    const driveLetter = driveLetterMatch[1];
+    const uncBaseOfDrive = await getUncPathForDrive(`${driveLetter}:`);
+    if (uncBaseOfDrive) {
+      const relativePathFromDriveRoot = resolvedBaseDir.substring(driveLetter.length + 2);
+      const uncBaseDir = path.join(uncBaseOfDrive, relativePathFromDriveRoot);
+      const uncSpecificOutputDir = path.join(uncBaseDir, subfolderName);
+      paths.push(path.resolve(path.join(uncSpecificOutputDir, fileName)));
+    }
+  }
+  return paths;
+}
+async function getPotentialDirectPaths(baseDir, fileName) {
+  const paths = [];
+  const resolvedBaseDir = path.resolve(baseDir);
+  paths.push(path.resolve(path.join(resolvedBaseDir, fileName)));
+  const driveLetterMatch = resolvedBaseDir.match(/^([a-zA-Z]):\\/);
+  if (driveLetterMatch) {
+    const driveLetter = driveLetterMatch[1];
+    const uncBaseOfDrive = await getUncPathForDrive(`${driveLetter}:`);
+    if (uncBaseOfDrive) {
+      const relativePathFromDriveRoot = resolvedBaseDir.substring(driveLetter.length + 2);
+      const uncBaseDir = path.join(uncBaseOfDrive, relativePathFromDriveRoot);
+      paths.push(path.resolve(path.join(uncBaseDir, fileName)));
+    }
+  }
+  return paths;
+}
+async function checkFileExistenceWithRetry(filePath, retries = 5, delayMs = 500) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await fs.promises.access(filePath, fs.constants.F_OK);
+      return true;
+    } catch (e) {
+      console.warn(`Attempt ${i + 1}/${retries}: File not found or inaccessible at ${filePath}: ${e.message}`);
+      if (i < retries - 1) {
+        await new Promise((resolve2) => setTimeout(resolve2, delayMs));
+      }
+    }
+  }
+  return false;
+}
 function activate(context) {
   console.log("Quarkdown Slides extension is now active!");
   let previewDisposable = vscode.commands.registerCommand("quarkdown-slides.preview", async () => {
@@ -83,7 +151,6 @@ function activate(context) {
     const filePath = editor.document.fileName;
     const fileDir = path.dirname(filePath);
     const outputBaseDir = path.join(fileDir, "output");
-    const resolvedOutputBaseDir = path.resolve(outputBaseDir);
     if (!fs.existsSync(outputBaseDir)) {
       fs.mkdirSync(outputBaseDir, { recursive: true });
     }
@@ -93,14 +160,20 @@ function activate(context) {
     if (docnameMatch && docnameMatch[1]) {
       expectedOutputFolderName = docnameMatch[1].replace(/\s/g, "-");
     }
-    const specificOutputDir = path.join(resolvedOutputBaseDir, expectedOutputFolderName);
-    const htmlFilePath = path.join(specificOutputDir, "index.html");
-    await executeQuarkdownCommand("", filePath, resolvedOutputBaseDir);
-    if (!fs.existsSync(htmlFilePath)) {
-      vscode.window.showErrorMessage(`Generated HTML file not found at ${htmlFilePath}.`);
+    await executeQuarkdownCommand("", filePath, outputBaseDir);
+    const htmlFilePaths = await getPotentialSubfolderPaths(outputBaseDir, expectedOutputFolderName, "index.html");
+    let foundHtmlPath = null;
+    for (const p of htmlFilePaths) {
+      if (await checkFileExistenceWithRetry(p)) {
+        foundHtmlPath = p;
+        break;
+      }
+    }
+    if (!foundHtmlPath) {
+      vscode.window.showErrorMessage(`Generated HTML file not found at any expected path. Tried: ${htmlFilePaths.join(", ")}.`);
       return;
     }
-    vscode.window.showInformationMessage(`Generated HTML to ${htmlFilePath}`);
+    vscode.window.showInformationMessage(`Generated HTML to ${foundHtmlPath}`);
     const panel = vscode.window.createWebviewPanel(
       "quarkdownPreview",
       // Identifies the type of the webview. Used internally
@@ -111,13 +184,13 @@ function activate(context) {
       {
         enableScripts: true,
         // Enable scripts in the webview
-        localResourceRoots: [vscode.Uri.file(specificOutputDir)]
+        localResourceRoots: [vscode.Uri.file(path.dirname(foundHtmlPath))]
         // Allow access to resources in the output directory
       }
     );
-    let htmlContent = fs.readFileSync(htmlFilePath, "utf8");
+    let htmlContent = fs.readFileSync(foundHtmlPath, "utf8");
     htmlContent = htmlContent.replace(/(src|href)="(?!https?:\/\/)([^"]*)"/g, (match, attr, resPath) => {
-      const resourceUri = vscode.Uri.file(path.resolve(specificOutputDir, resPath));
+      const resourceUri = vscode.Uri.file(path.resolve(path.dirname(foundHtmlPath), resPath));
       return `${attr}="${panel.webview.asWebviewUri(resourceUri)}"`;
     });
     panel.webview.html = htmlContent;
@@ -131,7 +204,6 @@ function activate(context) {
     const filePath = editor.document.fileName;
     const fileDir = path.dirname(filePath);
     const outputBaseDir = path.join(fileDir, "output");
-    const resolvedOutputBaseDir = path.resolve(outputBaseDir);
     if (!fs.existsSync(outputBaseDir)) {
       fs.mkdirSync(outputBaseDir, { recursive: true });
     }
@@ -141,13 +213,19 @@ function activate(context) {
     if (docnameMatch && docnameMatch[1]) {
       expectedOutputFolderName = docnameMatch[1].replace(/\s/g, "-");
     }
-    const specificOutputDir = path.join(resolvedOutputBaseDir, expectedOutputFolderName);
-    const htmlFilePath = path.join(specificOutputDir, "index.html");
-    await executeQuarkdownCommand("", filePath, resolvedOutputBaseDir);
-    if (fs.existsSync(htmlFilePath)) {
-      vscode.window.showInformationMessage(`Exported HTML to ${specificOutputDir}`);
+    await executeQuarkdownCommand("", filePath, outputBaseDir);
+    const htmlFilePaths = await getPotentialSubfolderPaths(outputBaseDir, expectedOutputFolderName, "index.html");
+    let foundHtmlPath = null;
+    for (const p of htmlFilePaths) {
+      if (await checkFileExistenceWithRetry(p)) {
+        foundHtmlPath = p;
+        break;
+      }
+    }
+    if (foundHtmlPath) {
+      vscode.window.showInformationMessage(`Exported HTML to ${path.dirname(foundHtmlPath)}`);
     } else {
-      vscode.window.showErrorMessage(`Could not find the exported HTML file at ${htmlFilePath}.`);
+      vscode.window.showErrorMessage(`Could not find the exported HTML file at any expected path. Tried: ${htmlFilePaths.join(", ")}.`);
     }
   });
   let exportPdfDisposable = vscode.commands.registerCommand("quarkdown-slides.exportPdf", async () => {
@@ -168,13 +246,20 @@ function activate(context) {
     if (docnameMatch && docnameMatch[1]) {
       expectedOutputFolderName = docnameMatch[1].replace(/\s/g, "-");
     }
-    const specificOutputDir = path.join(outputBaseDir, expectedOutputFolderName);
-    const pdfFilePath = path.join(specificOutputDir, "index.pdf");
     await executeQuarkdownCommand("--pdf", filePath, outputBaseDir);
-    if (fs.existsSync(pdfFilePath)) {
-      vscode.window.showInformationMessage(`Exported PDF to ${specificOutputDir}`);
+    const pdfFileName = `${expectedOutputFolderName}.pdf`;
+    const pdfFilePaths = await getPotentialDirectPaths(outputBaseDir, pdfFileName);
+    let foundPdfPath = null;
+    for (const p of pdfFilePaths) {
+      if (await checkFileExistenceWithRetry(p)) {
+        foundPdfPath = p;
+        break;
+      }
+    }
+    if (foundPdfPath) {
+      vscode.window.showInformationMessage(`Exported PDF to ${path.dirname(foundPdfPath)}`);
     } else {
-      vscode.window.showErrorMessage(`Could not find the exported PDF file at ${pdfFilePath}.`);
+      vscode.window.showErrorMessage(`Could not find the exported PDF file at any expected path. Tried: ${pdfFilePaths.join(", ")}.`);
     }
   });
   context.subscriptions.push(previewDisposable, exportHtmlDisposable, exportPdfDisposable);

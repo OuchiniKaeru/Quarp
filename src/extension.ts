@@ -13,16 +13,18 @@ function getQuarkdownPath(): string {
 
 async function executeQuarkdownCommand(command: string, filePath: string, outputDir?: string): Promise<void> {
     const quarkdownPath = getQuarkdownPath();
-    filePath = path.resolve(filePath); // Normalize the file path
-    let fullCommand = `${quarkdownPath} c ${command} "${filePath}"`;
+    // Always resolve filePath to an absolute path before passing to external command
+    const resolvedFilePath = path.resolve(filePath);
+    let fullCommand = `${quarkdownPath} c ${command} "${resolvedFilePath}"`;
 
     if (outputDir) {
-        // Ensure the output directory exists
+        // Ensure the output directory exists using the original outputDir
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
-        outputDir = path.resolve(outputDir); // Normalize the output directory
-        fullCommand = `${quarkdownPath} c ${command} -o "${outputDir}" "${filePath}"`;
+        // Always resolve outputDir to an absolute path before passing to external command
+        const resolvedOutputDir = path.resolve(outputDir);
+        fullCommand = `${quarkdownPath} c ${command} -o "${resolvedOutputDir}" "${resolvedFilePath}"`;
     }
 
     return new Promise((resolve, reject) => {
@@ -40,6 +42,97 @@ async function executeQuarkdownCommand(command: string, filePath: string, output
         });
     });
 }
+
+// Helper to get UNC path for a drive letter
+async function getUncPathForDrive(driveLetter: string): Promise<string | null> {
+    return new Promise((resolve) => {
+        exec('wmic path win32_mappedlogicaldisk get DeviceID,ProviderName /format:list', (error, stdout, stderr) => {
+            if (error) {
+                console.warn(`Error getting mapped drives: ${error.message}`);
+                return resolve(null);
+            }
+            const lines = stdout.split('\n');
+            for (const line of lines) {
+                const deviceIdMatch = line.match(/DeviceID=([A-Z]:)/i);
+                const providerNameMatch = line.match(/ProviderName=(.*)/);
+                if (deviceIdMatch && providerNameMatch && deviceIdMatch[1].toUpperCase() === driveLetter.toUpperCase()) {
+                    const providerName = providerNameMatch[1].trim();
+                    return resolve(providerName);
+                }
+            }
+            resolve(null);
+        });
+    });
+}
+
+// Helper function to get potential paths for files expected in a subfolder (e.g., HTML)
+async function getPotentialSubfolderPaths(baseDir: string, subfolderName: string, fileName: string): Promise<string[]> {
+    const paths: string[] = [];
+    
+    // Ensure baseDir is resolved to an absolute path first
+    const resolvedBaseDir = path.resolve(baseDir);
+
+    // 1. Add the path based on the resolved base directory
+    const specificOutputDirFromResolvedBase = path.join(resolvedBaseDir, subfolderName);
+    paths.push(path.resolve(path.join(specificOutputDirFromResolvedBase, fileName)));
+
+    // 2. If the resolved base directory starts with a drive letter, try to get the UNC path
+    const driveLetterMatch = resolvedBaseDir.match(/^([a-zA-Z]):\\/);
+    if (driveLetterMatch) {
+        const driveLetter = driveLetterMatch[1];
+        const uncBaseOfDrive = await getUncPathForDrive(`${driveLetter}:`);
+        if (uncBaseOfDrive) {
+            // Calculate the relative path from the drive root
+            const relativePathFromDriveRoot = resolvedBaseDir.substring(driveLetter.length + 2); // e.g., "Z:\path" -> "path"
+            const uncBaseDir = path.join(uncBaseOfDrive, relativePathFromDriveRoot);
+            const uncSpecificOutputDir = path.join(uncBaseDir, subfolderName);
+            paths.push(path.resolve(path.join(uncSpecificOutputDir, fileName)));
+        }
+    }
+    
+    return paths;
+}
+
+// Helper function to get potential paths for files expected directly in the base directory (e.g., PDF)
+async function getPotentialDirectPaths(baseDir: string, fileName: string): Promise<string[]> {
+    const paths: string[] = [];
+    
+    // Ensure baseDir is resolved to an absolute path first
+    const resolvedBaseDir = path.resolve(baseDir);
+
+    // 1. Add the path based on the resolved base directory
+    paths.push(path.resolve(path.join(resolvedBaseDir, fileName)));
+
+    // 2. If the resolved base directory starts with a drive letter, try to get the UNC path
+    const driveLetterMatch = resolvedBaseDir.match(/^([a-zA-Z]):\\/);
+    if (driveLetterMatch) {
+        const driveLetter = driveLetterMatch[1];
+        const uncBaseOfDrive = await getUncPathForDrive(`${driveLetter}:`);
+        if (uncBaseOfDrive) {
+            const relativePathFromDriveRoot = resolvedBaseDir.substring(driveLetter.length + 2);
+            const uncBaseDir = path.join(uncBaseOfDrive, relativePathFromDriveRoot);
+            paths.push(path.resolve(path.join(uncBaseDir, fileName)));
+        }
+    }
+    return paths;
+}
+
+// New helper function for robust file existence checking with retries
+async function checkFileExistenceWithRetry(filePath: string, retries: number = 5, delayMs: number = 500): Promise<boolean> {
+    for (let i = 0; i < retries; i++) {
+        try {
+            await fs.promises.access(filePath, fs.constants.F_OK);
+            return true; // File found
+        } catch (e: any) {
+            console.warn(`Attempt ${i + 1}/${retries}: File not found or inaccessible at ${filePath}: ${e.message}`);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+        }
+    }
+    return false; // File not found after all retries
+}
+
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Quarkdown Slides extension is now active!');
@@ -59,7 +152,6 @@ export function activate(context: vscode.ExtensionContext) {
         const filePath = editor.document.fileName;
         const fileDir = path.dirname(filePath);
         const outputBaseDir = path.join(fileDir, 'output'); // output ディレクトリのベースパス
-        const resolvedOutputBaseDir = path.resolve(outputBaseDir); // Normalize the output base directory
 
         // Ensure the output base directory exists
         if (!fs.existsSync(outputBaseDir)) {
@@ -74,18 +166,24 @@ export function activate(context: vscode.ExtensionContext) {
             expectedOutputFolderName = docnameMatch[1].replace(/\s/g, '-'); // Replace spaces with hyphens
         }
 
-        const specificOutputDir = path.join(resolvedOutputBaseDir, expectedOutputFolderName);
-        const htmlFilePath = path.join(specificOutputDir, 'index.html');
-
         // Execute quarkdown to generate HTML
-        await executeQuarkdownCommand('', filePath, resolvedOutputBaseDir); // Pass the base output directory
+        await executeQuarkdownCommand('', filePath, outputBaseDir); // Pass the base output directory
 
-        if (!fs.existsSync(htmlFilePath)) {
-            vscode.window.showErrorMessage(`Generated HTML file not found at ${htmlFilePath}.`);
+        const htmlFilePaths = await getPotentialSubfolderPaths(outputBaseDir, expectedOutputFolderName, 'index.html');
+        let foundHtmlPath: string | null = null;
+        for (const p of htmlFilePaths) {
+            if (await checkFileExistenceWithRetry(p)) {
+                foundHtmlPath = p;
+                break;
+            }
+        }
+
+        if (!foundHtmlPath) {
+            vscode.window.showErrorMessage(`Generated HTML file not found at any expected path. Tried: ${htmlFilePaths.join(', ')}.`);
             return;
         }
 
-        vscode.window.showInformationMessage(`Generated HTML to ${htmlFilePath}`);
+        vscode.window.showInformationMessage(`Generated HTML to ${foundHtmlPath}`);
 
         // Open the generated HTML file in a webview
         const panel = vscode.window.createWebviewPanel(
@@ -94,18 +192,18 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.ViewColumn.Beside, // Editor column to show the new webview panel in.
             {
                 enableScripts: true, // Enable scripts in the webview
-                localResourceRoots: [vscode.Uri.file(specificOutputDir)] // Allow access to resources in the output directory
+                localResourceRoots: [vscode.Uri.file(path.dirname(foundHtmlPath))] // Allow access to resources in the output directory
             }
         );
 
         // Read the HTML content
-        let htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
+        let htmlContent = fs.readFileSync(foundHtmlPath, 'utf8');
 
         // Convert local resource paths to webview URIs
         // This is a simplified approach. A more robust solution might involve parsing the HTML
         // and replacing all src/href attributes. For now, assume resources are relative to index.html.
         htmlContent = htmlContent.replace(/(src|href)="(?!https?:\/\/)([^"]*)"/g, (match, attr, resPath) => {
-            const resourceUri = vscode.Uri.file(path.resolve(specificOutputDir, resPath));
+            const resourceUri = vscode.Uri.file(path.resolve(path.dirname(foundHtmlPath), resPath));
             return `${attr}="${panel.webview.asWebviewUri(resourceUri)}"`;
         });
 
@@ -122,7 +220,6 @@ export function activate(context: vscode.ExtensionContext) {
         const filePath = editor.document.fileName;
         const fileDir = path.dirname(filePath);
         const outputBaseDir = path.join(fileDir, 'output'); // Base output directory
-        const resolvedOutputBaseDir = path.resolve(outputBaseDir); // Normalize the output base directory
 
         // Ensure the output base directory exists
         if (!fs.existsSync(outputBaseDir)) {
@@ -137,15 +234,21 @@ export function activate(context: vscode.ExtensionContext) {
             expectedOutputFolderName = docnameMatch[1].replace(/\s/g, '-'); // Replace spaces with hyphens
         }
 
-        const specificOutputDir = path.join(resolvedOutputBaseDir, expectedOutputFolderName);
-        const htmlFilePath = path.join(specificOutputDir, 'index.html');
+        await executeQuarkdownCommand('', filePath, outputBaseDir); // Compile to HTML
 
-        await executeQuarkdownCommand('', filePath, resolvedOutputBaseDir); // Compile to HTML
+        const htmlFilePaths = await getPotentialSubfolderPaths(outputBaseDir, expectedOutputFolderName, 'index.html');
+        let foundHtmlPath: string | null = null;
+        for (const p of htmlFilePaths) {
+            if (await checkFileExistenceWithRetry(p)) {
+                foundHtmlPath = p;
+                break;
+            }
+        }
 
-        if (fs.existsSync(htmlFilePath)) {
-            vscode.window.showInformationMessage(`Exported HTML to ${specificOutputDir}`);
+        if (foundHtmlPath) {
+            vscode.window.showInformationMessage(`Exported HTML to ${path.dirname(foundHtmlPath)}`);
         } else {
-            vscode.window.showErrorMessage(`Could not find the exported HTML file at ${htmlFilePath}.`);
+            vscode.window.showErrorMessage(`Could not find the exported HTML file at any expected path. Tried: ${htmlFilePaths.join(', ')}.`);
         }
     });
 
@@ -173,15 +276,22 @@ export function activate(context: vscode.ExtensionContext) {
             expectedOutputFolderName = docnameMatch[1].replace(/\s/g, '-'); // Replace spaces with hyphens
         }
 
-        const specificOutputDir = path.join(outputBaseDir, expectedOutputFolderName);
-        const pdfFilePath = path.join(specificOutputDir, 'index.pdf'); // Assuming PDF export creates index.pdf
-
         await executeQuarkdownCommand('--pdf', filePath, outputBaseDir); // Compile to PDF
 
-        if (fs.existsSync(pdfFilePath)) {
-            vscode.window.showInformationMessage(`Exported PDF to ${specificOutputDir}`);
+        const pdfFileName = `${expectedOutputFolderName}.pdf`;
+        const pdfFilePaths = await getPotentialDirectPaths(outputBaseDir, pdfFileName);
+        let foundPdfPath: string | null = null;
+        for (const p of pdfFilePaths) {
+            if (await checkFileExistenceWithRetry(p)) {
+                foundPdfPath = p;
+                break;
+            }
+        }
+
+        if (foundPdfPath) {
+            vscode.window.showInformationMessage(`Exported PDF to ${path.dirname(foundPdfPath)}`);
         } else {
-            vscode.window.showErrorMessage(`Could not find the exported PDF file at ${pdfFilePath}.`);
+            vscode.window.showErrorMessage(`Could not find the exported PDF file at any expected path. Tried: ${pdfFilePaths.join(', ')}.`);
         }
     });
 

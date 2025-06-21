@@ -19,9 +19,107 @@
     },
     {
       "include": "#italic"
+    },
+    {
+      "include": "#quarkdown-elements"
+    },
+    {
+      "include": "#quarkdown-arguments"
+    },
+    {
+      "include": "#quarkdown-variables"
+    },
+    {
+      "include": "#quarkdown-image-directives"
+    },
+    {
+      "include": "#quarkdown-alerts"
+    },
+    {
+      "include": "#code-blocks"
     }
   ],
   "repository": {
+    "quarkdown-elements": {
+      "patterns": [
+        {
+          "name": "entity.name.function.quarkdown",
+          "match": "\\.(docname|docauthor|doctype|doclang|theme|autopagebreak|footer|column|row|container|text|box|tableofcontents|grid|if|ifnot|let|var|repeat|foreach|table|whitespace|fragment|code|read|csv|mermaid|xychart|slides|pageformat|function|poweredby|greet|sourceresult|divide|sum|pow|pi|n|iseven|logn|include)"
+        }
+      ]
+    },
+    "quarkdown-arguments": {
+      "patterns": [
+        {
+          "name": "string.quoted.other.quarkdown",
+          "begin": "\\{",
+          "end": "\\}",
+          "captures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.quarkdown"
+            },
+            "1": {
+              "name": "punctuation.definition.string.end.quarkdown"
+            }
+          }
+        },
+        {
+          "name": "keyword.other.quarkdown",
+          "match": "\\b(layout|maxdepth|alignment|gap|credits|to|from|lines|horizontal|columns|shrinkvertical|animated|source|animated|n|by|to|truncate|transition|speed|orientation|fullwidth|textalignment|width|padding|margin|cross|name|animated|horizontal|source|shrinkvertical|animated|horizontal|source|radius|n|t1|t2|tmp|sizedimages):"
+        }
+      ]
+    },
+    "quarkdown-variables": {
+      "patterns": [
+        {
+          "name": "variable.other.quarkdown",
+          "match": "\\.var\\s+\\{[^\\}]+\\}"
+        }
+      ]
+    },
+    "quarkdown-image-directives": {
+      "patterns": [
+        {
+          "name": "markup.underline.link.image.markdown",
+          "match": "!\\[[^\\]]*\\]\\([^\\)]*\\)"
+        },
+        {
+          "name": "keyword.other.quarkdown",
+          "match": "!\\((?:\\d+(?:x\\d+)?|\\d+(?:in|cm|mm|pt|pc|em|ex|ch|rem|vw|vh|vmin|vmax|%)?(?:\\*\\d+(?:in|cm|mm|pt|pc|em|ex|ch|rem|vw|vh|vmin|vmax|%)?)?|_[*]\\d+(?:in|cm|mm|pt|pc|em|ex|ch|rem|vw|vh|vmin|vmax|%)?)\\)"
+        }
+      ]
+    },
+    "quarkdown-alerts": {
+      "patterns": [
+        {
+          "name": "markup.other.alert.quarkdown",
+          "match": "^>\\s+(Note|Tip|Warning):"
+        }
+      ]
+    },
+    "code-blocks": {
+      "patterns": [
+        {
+          "name": "markup.raw.block.markdown",
+          "begin": "```",
+          "end": "```",
+          "captures": {
+            "0": {
+              "name": "punctuation.definition.markdown"
+            }
+          },
+          "patterns": [
+            {
+              "name": "variable.language.markdown",
+              "match": "^```(markdown|java|python|javascript|json|yaml|xml|html|css|c|cpp|csharp|go|ruby|rust|swift|kotlin|php|sql|shell|bash|powershell|mermaid|latex|text|plain|diff|git|ini|log|makefile|nginx|perl|r|regex|ruby|scala|scss|sh|sql|svg|toml|typescript|vbnet|vim|yaml|yml|zsh)\\b"
+            },
+            {
+              "include": "#source.embedded"
+            }
+          ]
+        }
+      ]
+    },
     "keywords": {
       "patterns": [
         {

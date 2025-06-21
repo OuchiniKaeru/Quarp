@@ -1,71 +1,100 @@
-# quarp README
+# Quarp README
 
-This is the README for your extension "quarp". After writing up a brief description, we recommend including the following sections.
+This VS Code extension provides syntax highlighting for Quarkdown's `.qmd` files, allows you to preview slides, and export them to HTML/PDF.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+### Syntax Highlighting
+Provides rich syntax highlighting for `.qmd` files, making your Quarkdown code more readable and easier to write.
 
-For example if there is an image subfolder under your extension project workspace:
+### Slide Preview
+Open an HTML preview of your Quarkdown slides directly within the VS Code editor.
 
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+### Export to HTML/PDF
+Easily export your Quarkdown slides to HTML or PDF formats for sharing or presentation.
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+This extension requires the following to be installed on your system:
+
+*   **Quarkdown**: For detailed installation instructions, please refer to the official Quarkdown GitHub page: [https://github.com/iamgio/quarkdown](https://github.com/iamgio/quarkdown)
+*   **Java**: Quarkdown requires Java to run. Please ensure you have a compatible Java Runtime Environment (JRE) or Java Development Kit (JDK) installed.
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+This extension does not contribute any VS Code settings through the `contributes.configuration` extension point.
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+Currently, there are no known issues.
 
 ## Release Notes
 
 Users appreciate release notes as you update your extension.
 
-### 1.0.0
+### 0.0.1
 
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+Initial release of Quarp.
 
 ---
 
-## Following extension guidelines
+# Quarp README (Japanese)
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+このVS Code拡張機能は、Quarkdownの`.qmd`ファイルのシンタックスハイライトを提供し、スライドのプレビュー表示、およびHTML/PDFへのエクスポートを可能にします。
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+## 機能
 
-## Working with Markdown
+### シンタックスハイライト
+`.qmd`ファイルに豊富なシンタックスハイライトを提供し、Quarkdownコードをより読みやすく、書きやすくします。
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+### スライドプレビュー
+VS Codeエディタ内でQuarkdownスライドのHTMLプレビューを直接開くことができます。
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+### HTML/PDFエクスポート
+QuarkdownスライドをHTMLまたはPDF形式に簡単にエクスポートして、共有やプレゼンテーションに利用できます。
 
-## For more information
+## 必要条件
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+この拡張機能を使用するには、以下のものがシステムにインストールされている必要があります。
 
-**Enjoy!**
+*   **Quarkdown**: 詳細なインストール手順については、Quarkdownの公式GitHubページを参照してください: [https://github.com/iamgio/quarkdown](https://github.com/iamgio/quarkdown)
+*   **Java**: Quarkdownの実行にはJavaが必要です。互換性のあるJava Runtime Environment (JRE) またはJava Development Kit (JDK) がインストールされていることを確認してください。
+
+## 拡張機能の設定
+
+この拡張機能は、`contributes.configuration` 拡張ポイントを通じてVS Codeの設定を提供しません。
+
+## 既知の問題
+
+現在、既知の問題はありません。
+
+## リリースノート
+
+拡張機能を更新する際には、リリースノートが役立ちます。
+
+### 0.0.1
+
+Quarpの初回リリース。
+
+---
+
+## 拡張機能のガイドラインに従う
+
+拡張機能のガイドラインを読み、拡張機能を作成するためのベストプラクティスに従っていることを確認してください。
+
+* [拡張機能のガイドライン](https://code.visualstudio.com/api/references/extension-guidelines)
+
+## Markdownの操作
+
+Visual Studio Codeを使用してREADMEを作成できます。以下に便利なエディターのキーボードショートカットを示します。
+
+* エディターを分割する（macOSでは`Cmd+\`、WindowsおよびLinuxでは`Ctrl+\`）。
+* プレビューを切り替える（macOSでは`Shift+Cmd+V`、WindowsおよびLinuxでは`Shift+Ctrl+V`）。
+* `Ctrl+Space`（Windows、Linux、macOS）を押すと、Markdownスニペットのリストが表示されます。
+
+## 詳細情報
+
+* [Visual Studio CodeのMarkdownサポート](http://code.visualstudio.com/docs/languages/markdown)
+* [Markdown構文リファレンス](https://help.github.com/articles/markdown-basics/)
+
+**お楽しみください！**

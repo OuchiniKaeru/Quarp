@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { exec } from 'child_process';
 
 function getQuarkdownPath(): string {
     // For simplicity, assume quarkdown is in PATH.
@@ -10,8 +11,9 @@ function getQuarkdownPath(): string {
     return 'quarkdown';
 }
 
-async function executeQuarkdownCommand(command: string, filePath: string, outputDir?: string) {
+async function executeQuarkdownCommand(command: string, filePath: string, outputDir?: string): Promise<void> {
     const quarkdownPath = getQuarkdownPath();
+    filePath = path.resolve(filePath); // Normalize the file path
     let fullCommand = `${quarkdownPath} c ${command} "${filePath}"`;
 
     if (outputDir) {
@@ -19,12 +21,24 @@ async function executeQuarkdownCommand(command: string, filePath: string, output
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
+        outputDir = path.resolve(outputDir); // Normalize the output directory
         fullCommand = `${quarkdownPath} c ${command} -o "${outputDir}" "${filePath}"`;
     }
 
-    const terminal = vscode.window.createTerminal(`Quarkdown: ${path.basename(filePath)}`);
-    terminal.show();
-    terminal.sendText(fullCommand);
+    return new Promise((resolve, reject) => {
+        exec(fullCommand, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`exec error: ${error}`);
+                vscode.window.showErrorMessage(`Quarkdown command failed: ${error.message}\n${stderr}`);
+                return reject(error);
+            }
+            if (stderr) {
+                console.warn(`Quarkdown stderr: ${stderr}`);
+            }
+            console.log(`Quarkdown stdout: ${stdout}`);
+            resolve();
+        });
+    });
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -37,15 +51,40 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
+        if (editor.document.isUntitled) {
+            vscode.window.showWarningMessage('Please save the Quarkdown file before previewing.');
+            return;
+        }
+
         const filePath = editor.document.fileName;
         const fileDir = path.dirname(filePath);
-        const outputDir = path.join(fileDir, 'output');
-        const fileNameWithoutExt = path.basename(filePath, '.qmd');
-        const specificOutputDir = path.join(outputDir, `Quarkdown-${fileNameWithoutExt}`);
+        const outputBaseDir = path.join(fileDir, 'output'); // output ディレクトリのベースパス
+        const resolvedOutputBaseDir = path.resolve(outputBaseDir); // Normalize the output base directory
+
+        // Ensure the output base directory exists
+        if (!fs.existsSync(outputBaseDir)) {
+            fs.mkdirSync(outputBaseDir, { recursive: true });
+        }
+
+        // Determine the expected output folder name based on .docname or default
+        let expectedOutputFolderName = 'Untitled-Quarkdown-Document'; // Default if .docname not found
+        const documentText = editor.document.getText();
+        const docnameMatch = documentText.match(/^\.docname\s*\{\s*([^}]+)\s*\}/m);
+        if (docnameMatch && docnameMatch[1]) {
+            expectedOutputFolderName = docnameMatch[1].replace(/\s/g, '-'); // Replace spaces with hyphens
+        }
+
+        const specificOutputDir = path.join(resolvedOutputBaseDir, expectedOutputFolderName);
         const htmlFilePath = path.join(specificOutputDir, 'index.html');
 
         // Execute quarkdown to generate HTML
-        await executeQuarkdownCommand('', filePath, outputDir); // Quarkdown will create specificOutputDir
+        await executeQuarkdownCommand('', filePath, resolvedOutputBaseDir); // Pass the base output directory
+
+        if (!fs.existsSync(htmlFilePath)) {
+            vscode.window.showErrorMessage(`Generated HTML file not found at ${htmlFilePath}.`);
+            return;
+        }
+
         vscode.window.showInformationMessage(`Generated HTML to ${htmlFilePath}`);
 
         // Open the generated HTML file in a webview
@@ -82,10 +121,32 @@ export function activate(context: vscode.ExtensionContext) {
 
         const filePath = editor.document.fileName;
         const fileDir = path.dirname(filePath);
-        const outputDir = path.join(fileDir, 'output'); // Default output directory
+        const outputBaseDir = path.join(fileDir, 'output'); // Base output directory
+        const resolvedOutputBaseDir = path.resolve(outputBaseDir); // Normalize the output base directory
 
-        await executeQuarkdownCommand('', filePath, outputDir); // Just compile to HTML
-        vscode.window.showInformationMessage(`Exported HTML to ${outputDir}`);
+        // Ensure the output base directory exists
+        if (!fs.existsSync(outputBaseDir)) {
+            fs.mkdirSync(outputBaseDir, { recursive: true });
+        }
+
+        // Determine the expected output folder name based on .docname or default
+        let expectedOutputFolderName = 'Untitled-Quarkdown-Document'; // Default if .docname not found
+        const documentText = editor.document.getText();
+        const docnameMatch = documentText.match(/^\.docname\s*\{\s*([^}]+)\s*\}/m);
+        if (docnameMatch && docnameMatch[1]) {
+            expectedOutputFolderName = docnameMatch[1].replace(/\s/g, '-'); // Replace spaces with hyphens
+        }
+
+        const specificOutputDir = path.join(resolvedOutputBaseDir, expectedOutputFolderName);
+        const htmlFilePath = path.join(specificOutputDir, 'index.html');
+
+        await executeQuarkdownCommand('', filePath, resolvedOutputBaseDir); // Compile to HTML
+
+        if (fs.existsSync(htmlFilePath)) {
+            vscode.window.showInformationMessage(`Exported HTML to ${specificOutputDir}`);
+        } else {
+            vscode.window.showErrorMessage(`Could not find the exported HTML file at ${htmlFilePath}.`);
+        }
     });
 
     let exportPdfDisposable = vscode.commands.registerCommand('quarkdown-slides.exportPdf', async () => {
@@ -97,10 +158,31 @@ export function activate(context: vscode.ExtensionContext) {
 
         const filePath = editor.document.fileName;
         const fileDir = path.dirname(filePath);
-        const outputDir = path.join(fileDir, 'output'); // Default output directory
+        const outputBaseDir = path.join(fileDir, 'output'); // Base output directory
 
-        await executeQuarkdownCommand('--pdf', filePath, outputDir);
-        vscode.window.showInformationMessage(`Exported PDF to ${outputDir}`);
+        // Ensure the output base directory exists
+        if (!fs.existsSync(outputBaseDir)) {
+            fs.mkdirSync(outputBaseDir, { recursive: true });
+        }
+
+        // Determine the expected output folder name based on .docname or default
+        let expectedOutputFolderName = 'Untitled-Quarkdown-Document'; // Default if .docname not found
+        const documentText = editor.document.getText();
+        const docnameMatch = documentText.match(/^\.docname\s*\{\s*([^}]+)\s*\}/m);
+        if (docnameMatch && docnameMatch[1]) {
+            expectedOutputFolderName = docnameMatch[1].replace(/\s/g, '-'); // Replace spaces with hyphens
+        }
+
+        const specificOutputDir = path.join(outputBaseDir, expectedOutputFolderName);
+        const pdfFilePath = path.join(specificOutputDir, 'index.pdf'); // Assuming PDF export creates index.pdf
+
+        await executeQuarkdownCommand('--pdf', filePath, outputBaseDir); // Compile to PDF
+
+        if (fs.existsSync(pdfFilePath)) {
+            vscode.window.showInformationMessage(`Exported PDF to ${specificOutputDir}`);
+        } else {
+            vscode.window.showErrorMessage(`Could not find the exported PDF file at ${pdfFilePath}.`);
+        }
     });
 
     context.subscriptions.push(previewDisposable, exportHtmlDisposable, exportPdfDisposable);

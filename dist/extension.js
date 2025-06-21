@@ -37,21 +37,36 @@ module.exports = __toCommonJS(extension_exports);
 var vscode = __toESM(require("vscode"));
 var path = __toESM(require("path"));
 var fs = __toESM(require("fs"));
+var import_child_process = require("child_process");
 function getQuarkdownPath() {
   return "quarkdown";
 }
 async function executeQuarkdownCommand(command, filePath, outputDir) {
   const quarkdownPath = getQuarkdownPath();
+  filePath = path.resolve(filePath);
   let fullCommand = `${quarkdownPath} c ${command} "${filePath}"`;
   if (outputDir) {
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
+    outputDir = path.resolve(outputDir);
     fullCommand = `${quarkdownPath} c ${command} -o "${outputDir}" "${filePath}"`;
   }
-  const terminal = vscode.window.createTerminal(`Quarkdown: ${path.basename(filePath)}`);
-  terminal.show();
-  terminal.sendText(fullCommand);
+  return new Promise((resolve2, reject) => {
+    (0, import_child_process.exec)(fullCommand, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`exec error: ${error}`);
+        vscode.window.showErrorMessage(`Quarkdown command failed: ${error.message}
+${stderr}`);
+        return reject(error);
+      }
+      if (stderr) {
+        console.warn(`Quarkdown stderr: ${stderr}`);
+      }
+      console.log(`Quarkdown stdout: ${stdout}`);
+      resolve2();
+    });
+  });
 }
 function activate(context) {
   console.log("Quarkdown Slides extension is now active!");
@@ -61,13 +76,30 @@ function activate(context) {
       vscode.window.showWarningMessage("Please open a Quarkdown (.qmd) file to preview.");
       return;
     }
+    if (editor.document.isUntitled) {
+      vscode.window.showWarningMessage("Please save the Quarkdown file before previewing.");
+      return;
+    }
     const filePath = editor.document.fileName;
     const fileDir = path.dirname(filePath);
-    const outputDir = path.join(fileDir, "output");
-    const fileNameWithoutExt = path.basename(filePath, ".qmd");
-    const specificOutputDir = path.join(outputDir, `Quarkdown-${fileNameWithoutExt}`);
+    const outputBaseDir = path.join(fileDir, "output");
+    const resolvedOutputBaseDir = path.resolve(outputBaseDir);
+    if (!fs.existsSync(outputBaseDir)) {
+      fs.mkdirSync(outputBaseDir, { recursive: true });
+    }
+    let expectedOutputFolderName = "Untitled-Quarkdown-Document";
+    const documentText = editor.document.getText();
+    const docnameMatch = documentText.match(/^\.docname\s*\{\s*([^}]+)\s*\}/m);
+    if (docnameMatch && docnameMatch[1]) {
+      expectedOutputFolderName = docnameMatch[1].replace(/\s/g, "-");
+    }
+    const specificOutputDir = path.join(resolvedOutputBaseDir, expectedOutputFolderName);
     const htmlFilePath = path.join(specificOutputDir, "index.html");
-    await executeQuarkdownCommand("", filePath, outputDir);
+    await executeQuarkdownCommand("", filePath, resolvedOutputBaseDir);
+    if (!fs.existsSync(htmlFilePath)) {
+      vscode.window.showErrorMessage(`Generated HTML file not found at ${htmlFilePath}.`);
+      return;
+    }
     vscode.window.showInformationMessage(`Generated HTML to ${htmlFilePath}`);
     const panel = vscode.window.createWebviewPanel(
       "quarkdownPreview",
@@ -98,9 +130,25 @@ function activate(context) {
     }
     const filePath = editor.document.fileName;
     const fileDir = path.dirname(filePath);
-    const outputDir = path.join(fileDir, "output");
-    await executeQuarkdownCommand("", filePath, outputDir);
-    vscode.window.showInformationMessage(`Exported HTML to ${outputDir}`);
+    const outputBaseDir = path.join(fileDir, "output");
+    const resolvedOutputBaseDir = path.resolve(outputBaseDir);
+    if (!fs.existsSync(outputBaseDir)) {
+      fs.mkdirSync(outputBaseDir, { recursive: true });
+    }
+    let expectedOutputFolderName = "Untitled-Quarkdown-Document";
+    const documentText = editor.document.getText();
+    const docnameMatch = documentText.match(/^\.docname\s*\{\s*([^}]+)\s*\}/m);
+    if (docnameMatch && docnameMatch[1]) {
+      expectedOutputFolderName = docnameMatch[1].replace(/\s/g, "-");
+    }
+    const specificOutputDir = path.join(resolvedOutputBaseDir, expectedOutputFolderName);
+    const htmlFilePath = path.join(specificOutputDir, "index.html");
+    await executeQuarkdownCommand("", filePath, resolvedOutputBaseDir);
+    if (fs.existsSync(htmlFilePath)) {
+      vscode.window.showInformationMessage(`Exported HTML to ${specificOutputDir}`);
+    } else {
+      vscode.window.showErrorMessage(`Could not find the exported HTML file at ${htmlFilePath}.`);
+    }
   });
   let exportPdfDisposable = vscode.commands.registerCommand("quarkdown-slides.exportPdf", async () => {
     const editor = vscode.window.activeTextEditor;
@@ -110,9 +158,24 @@ function activate(context) {
     }
     const filePath = editor.document.fileName;
     const fileDir = path.dirname(filePath);
-    const outputDir = path.join(fileDir, "output");
-    await executeQuarkdownCommand("--pdf", filePath, outputDir);
-    vscode.window.showInformationMessage(`Exported PDF to ${outputDir}`);
+    const outputBaseDir = path.join(fileDir, "output");
+    if (!fs.existsSync(outputBaseDir)) {
+      fs.mkdirSync(outputBaseDir, { recursive: true });
+    }
+    let expectedOutputFolderName = "Untitled-Quarkdown-Document";
+    const documentText = editor.document.getText();
+    const docnameMatch = documentText.match(/^\.docname\s*\{\s*([^}]+)\s*\}/m);
+    if (docnameMatch && docnameMatch[1]) {
+      expectedOutputFolderName = docnameMatch[1].replace(/\s/g, "-");
+    }
+    const specificOutputDir = path.join(outputBaseDir, expectedOutputFolderName);
+    const pdfFilePath = path.join(specificOutputDir, "index.pdf");
+    await executeQuarkdownCommand("--pdf", filePath, outputBaseDir);
+    if (fs.existsSync(pdfFilePath)) {
+      vscode.window.showInformationMessage(`Exported PDF to ${specificOutputDir}`);
+    } else {
+      vscode.window.showErrorMessage(`Could not find the exported PDF file at ${pdfFilePath}.`);
+    }
   });
   context.subscriptions.push(previewDisposable, exportHtmlDisposable, exportPdfDisposable);
 }

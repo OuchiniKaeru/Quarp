@@ -3,6 +3,8 @@
   "displayName": "Quarp",
   "description": "quarkdown previewer.",
   "version": "0.0.1",
+  "publisher": "OuchiniKaeru",
+  "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.60.0"
   },

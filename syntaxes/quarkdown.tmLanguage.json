@@ -6,6 +6,21 @@
       "include": "#quarkdown-elements"
     },
     {
+      "include": "#quarkdown-arguments"
+    },
+    {
+      "include": "#quarkdown-variables"
+    },
+    {
+      "include": "#quarkdown-image-directives"
+    },
+    {
+      "include": "#quarkdown-alerts"
+    },
+    {
+      "include": "#code-blocks"
+    },
+    {
       "include": "#keywords"
     },
     {
@@ -19,12 +34,6 @@
     },
     {
       "include": "#italic"
-    },
-    {
-      "include": "#code-block"
-    },
-    {
-      "include": "#inline-code"
     },
     {
       "include": "#links"
@@ -59,11 +68,11 @@
       "patterns": [
         {
           "name": "entity.name.function.quarkdown",
-          "match": "\\.(docname|docauthor|doctype|doclang|theme|autopagebreak|footer|column|function|var|fragment|whitespace|poweredby|sourceresult|csv|mermaid|tableofcontents|code|read|divide|grid|row|container|text|box|table|foreach|if|ifnot|let|repeat|xychart|sum|pow|multiply|truncate|logn|iseven|node|downarrow|source|rightarrow|include|section|slide|page|tableofcontents)\\b|@lambda\\b"
+          "match": "\\.(docname|docauthor|doctype|doclang|theme|autopagebreak|footer|column|function|var|fragment|whitespace|poweredby|sourceresult|csv|mermaid|tableofcontents|code|read|divide|grid|row|container|text|box|table|foreach|if|ifnot|let|repeat|xychart|sum|pow|multiply|truncate|logn|iseven|node|downarrow|source|rightarrow|include|section|slide|page|tableofcontents|slides|pageformat|greet|pi|n)\\b|@lambda\\b"
         },
         {
           "name": "variable.parameter.quarkdown",
-          "match": "\\b(layout|maxdepth|credits|size|variant|alignment|gap|fullwidth|width|cross|to|from|by|columns|orientation|transition|speed|source|shrinkvertical|animated|horizontal|lines|n|otherwise)\\b(?=\\?|:)"
+          "match": "\\b(layout|maxdepth|credits|size|variant|alignment|gap|fullwidth|width|cross|to|from|by|columns|orientation|transition|speed|source|shrinkvertical|animated|horizontal|lines|n|otherwise|textalignment|padding|margin|name|radius|t1|t2|tmp|sizedimages)\\b(?=\\?|:)"
         },
         {
           "name": "keyword.operator.quarkdown",
@@ -97,6 +106,78 @@
             },
             {
               "include": "$self"
+            }
+          ]
+        }
+      ]
+    },
+    "quarkdown-arguments": {
+      "patterns": [
+        {
+          "name": "string.quoted.other.quarkdown",
+          "begin": "\\{",
+          "end": "\\}",
+          "captures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.quarkdown"
+            },
+            "1": {
+              "name": "punctuation.definition.string.end.quarkdown"
+            }
+          }
+        },
+        {
+          "name": "keyword.other.quarkdown",
+          "match": "\\b(layout|maxdepth|alignment|gap|credits|to|from|lines|horizontal|columns|shrinkvertical|animated|source|animated|n|by|to|truncate|transition|speed|orientation|fullwidth|textalignment|width|padding|margin|cross|name|animated|horizontal|source|radius|n|t1|t2|tmp|sizedimages):"
+        }
+      ]
+    },
+    "quarkdown-variables": {
+      "patterns": [
+        {
+          "name": "variable.other.quarkdown",
+          "match": "\\.var\\s+\\{[^\\}]+\\}"
+        }
+      ]
+    },
+    "quarkdown-image-directives": {
+      "patterns": [
+        {
+          "name": "markup.underline.link.image.markdown",
+          "match": "!\\[[^\\]]*\\]\\([^\\)]*\\)"
+        },
+        {
+          "name": "keyword.other.quarkdown",
+          "match": "!\\((?:\\d+(?:x\\d+)?|\\d+(?:in|cm|mm|pt|pc|em|ex|ch|rem|vw|vh|vmin|vmax|%)?(?:\\*\\d+(?:in|cm|mm|pt|pc|em|ex|ch|rem|vw|vh|vmin|vmax|%)?)?|_[*]\\d+(?:in|cm|mm|pt|pc|em|ex|ch|rem|vw|vh|vmin|vmax|%)?)\\)"
+        }
+      ]
+    },
+    "quarkdown-alerts": {
+      "patterns": [
+        {
+          "name": "markup.other.alert.quarkdown",
+          "match": "^>\\s+(Note|Tip|Warning):"
+        }
+      ]
+    },
+    "code-blocks": {
+      "patterns": [
+        {
+          "name": "markup.raw.block.markdown",
+          "begin": "```",
+          "end": "```",
+          "captures": {
+            "0": {
+              "name": "punctuation.definition.markdown"
+            }
+          },
+          "patterns": [
+            {
+              "name": "variable.language.markdown",
+              "match": "^```(markdown|java|python|javascript|json|yaml|xml|html|css|c|cpp|csharp|go|ruby|rust|swift|kotlin|php|sql|shell|bash|powershell|mermaid|latex|text|plain|diff|git|ini|log|makefile|nginx|perl|r|regex|ruby|scala|scss|sh|sql|svg|toml|typescript|vbnet|vim|yaml|yml|zsh)\\b"
+            },
+            {
+              "include": "#source.embedded"
             }
           ]
         }
@@ -226,27 +307,6 @@
     "horizontal-rule": {
       "name": "punctuation.separator.horizontal-rule.quarkdown",
       "match": "^---\\s*$"
-    },
-    "code-block": {
-      "begin": "^```\\s*([a-zA-Z0-9._-]+)?\\s*$",
-      "end": "^```\\s*$",
-      "name": "markup.fenced_code.block.quarkdown",
-      "contentName": "source.qd",
-      "patterns": [
-        {
-          "begin": "(?<=^```\\s*)([a-zA-Z0-9._-]+)",
-          "end": "(?=\\s*$)",
-          "name": "variable.language.fenced_code.block.quarkdown",
-          "captures": {
-            "1": {
-              "name": "fenced_code.block.language"
-            }
-          }
-        },
-        {
-          "include": "$self"
-        }
-      ]
     },
     "keywords": {
       "patterns": [

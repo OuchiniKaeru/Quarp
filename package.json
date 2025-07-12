@@ -2,11 +2,15 @@
   "name": "quarp",
   "displayName": "Quarp",
   "description": "quarkdown previewer.",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "publisher": "OuchiniKaeru",
   "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OuchiniKaeru/Quarp.git"
+  },
   "engines": {
-    "vscode": "^1.60.0"
+    "vscode": "^1.101.0"
   },
   "categories": [
     "Other"

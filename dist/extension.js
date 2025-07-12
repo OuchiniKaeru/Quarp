@@ -37,21 +37,53 @@ module.exports = __toCommonJS(extension_exports);
 var vscode = __toESM(require("vscode"));
 var path = __toESM(require("path"));
 var fs = __toESM(require("fs"));
+var import_child_process = require("child_process");
 function getQuarkdownPath() {
   return "quarkdown";
+}
+function sanitizeDocname(docname) {
+  let sanitized = docname.replace(/[^a-zA-Z0-9-]/g, "-").replace(/--+/g, "-");
+  return sanitized;
+}
+async function getDocnameFromFile(filePath) {
+  try {
+    const content = await fs.promises.readFile(filePath, "utf8");
+    const match = content.match(/^\.docname\s*\{\s*(.*?)\s*\}/m);
+    if (match && match[1]) {
+      return match[1];
+    }
+  } catch (error) {
+    console.error(`Error reading file ${filePath}:`, error);
+  }
+  return null;
 }
 async function executeQuarkdownCommand(command, filePath, outputDir) {
   const quarkdownPath = getQuarkdownPath();
   let fullCommand = `${quarkdownPath} c ${command} "${filePath}"`;
   if (outputDir) {
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
+    try {
+      await fs.promises.mkdir(outputDir, { recursive: true });
+    } catch (err) {
+      vscode.window.showErrorMessage(`Failed to create output directory: ${err}`);
+      throw err;
     }
     fullCommand = `${quarkdownPath} c ${command} -o "${outputDir}" "${filePath}"`;
   }
-  const terminal = vscode.window.createTerminal(`Quarkdown: ${path.basename(filePath)}`);
-  terminal.show();
-  terminal.sendText(fullCommand);
+  return new Promise((resolve2, reject) => {
+    (0, import_child_process.exec)(fullCommand, (error, stdout, stderr) => {
+      if (error) {
+        vscode.window.showErrorMessage(`Quarkdown command failed: ${error.message}
+${stderr}`);
+        reject(error);
+        return;
+      }
+      if (stderr) {
+        console.warn(`Quarkdown command stderr: ${stderr}`);
+      }
+      console.log(`Quarkdown command stdout: ${stdout}`);
+      resolve2(stdout);
+    });
+  });
 }
 function activate(context) {
   console.log("Quarkdown Slides extension is now active!");
@@ -64,10 +96,57 @@ function activate(context) {
     const filePath = editor.document.fileName;
     const fileDir = path.dirname(filePath);
     const outputDir = path.join(fileDir, "output");
-    const fileNameWithoutExt = path.basename(filePath, ".qmd");
-    const specificOutputDir = path.join(outputDir, `Quarkdown-${fileNameWithoutExt}`);
+    let stdout;
+    try {
+      stdout = await executeQuarkdownCommand("", filePath, outputDir);
+    } catch (error) {
+      return;
+    }
+    let specificOutputDir = "";
+    let docname = await getDocnameFromFile(filePath);
+    let expectedFolderName = "";
+    if (docname) {
+      expectedFolderName = sanitizeDocname(docname);
+    } else {
+      expectedFolderName = sanitizeDocname(path.basename(filePath, path.extname(filePath)));
+    }
+    if (expectedFolderName === "") {
+      expectedFolderName = "-";
+    }
+    try {
+      const entries = await fs.promises.readdir(outputDir, { withFileTypes: true });
+      const subDirs = entries.filter((dirent) => dirent.isDirectory()).map((dirent) => dirent.name);
+      const foundDirName = subDirs.find((dirName) => dirName === expectedFolderName);
+      if (foundDirName) {
+        specificOutputDir = path.join(outputDir, foundDirName);
+      } else {
+        vscode.window.showWarningMessage(`Expected folder "${expectedFolderName}" not found. Attempting to find the latest generated directory.`);
+        let latestDir = "";
+        let latestMtime = /* @__PURE__ */ new Date(0);
+        for (const dirName of subDirs) {
+          const dirPath = path.join(outputDir, dirName);
+          const stats = await fs.promises.stat(dirPath);
+          if (stats.mtime > latestMtime) {
+            latestMtime = stats.mtime;
+            latestDir = dirPath;
+          }
+        }
+        if (latestDir) {
+          specificOutputDir = latestDir;
+        } else {
+          vscode.window.showErrorMessage("Could not determine the specific output directory.");
+          return;
+        }
+      }
+    } catch (err) {
+      vscode.window.showErrorMessage(`Failed to read output directory: ${err}`);
+      return;
+    }
     const htmlFilePath = path.join(specificOutputDir, "index.html");
-    await executeQuarkdownCommand("", filePath, outputDir);
+    if (!fs.existsSync(htmlFilePath)) {
+      vscode.window.showErrorMessage(`Generated HTML file not found at ${htmlFilePath}.`);
+      return;
+    }
     vscode.window.showInformationMessage(`Generated HTML to ${htmlFilePath}`);
     const panel = vscode.window.createWebviewPanel(
       "quarkdownPreview",

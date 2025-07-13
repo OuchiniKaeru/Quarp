@@ -36,11 +36,11 @@ Users appreciate release notes as you update your extension.
 
 Initial release of Quarp.
 
-### 1.0.1
+### 0.0.2
 
 Fixed an issue where network folders could not be referenced.
 
-### 1.1.0
+### 0.0.3
 
 - Added support for .qd files.
 - Enabled preview for documents containing Japanese characters.
@@ -109,11 +109,11 @@ QuarkdownスライドをHTMLまたはPDF形式に簡単にエクスポートし�
 
 Quarpの初回リリース。
 
-### 1.0.1
+### 0.0.2
 
 ネットワークフォルダを参照できない事象を修正しました。
 
-### 1.1.0
+### 0.0.3
 
 - .qdファイルを対象にしました。
 - docmaneに日本語があってもプレビューできるように対応。

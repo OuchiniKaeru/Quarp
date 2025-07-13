@@ -5,10 +5,21 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { exec } from 'child_process';
 
-function getQuarkdownPath(): string {
-    // For simplicity, assume quarkdown is in PATH.
-    // In a real extension, you might allow users to configure the path.
-    return 'quarkdown';
+async function getQuarkdownPath(): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const command = process.platform === 'win32' ? 'where quarkdown' : 'which quarkdown';
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                vscode.window.showErrorMessage(`Quarkdown command not found. Please ensure 'quarkdown' is installed and available in your system's PATH. Error: ${error.message}`);
+                reject(new Error('Quarkdown not found'));
+                return;
+            }
+            if (stderr) {
+                console.warn(`Quarkdown path check stderr: ${stderr}`);
+            }
+            resolve(stdout.trim().split('\n')[0]); // 最初のパスを返す
+        });
+    });
 }
 
 // .docnameからフォルダ名を抽出・サニタイズする関数
@@ -36,7 +47,7 @@ async function getDocnameFromFile(filePath: string): Promise<string | null> {
 }
 
 async function executeQuarkdownCommand(command: string, filePath: string, outputDir?: string): Promise<string> {
-    const quarkdownPath = getQuarkdownPath();
+    const quarkdownPath = await getQuarkdownPath(); // await を追加
     // Always resolve filePath to an absolute path before passing to external command
     const resolvedFilePath = path.resolve(filePath);
     let fullCommand = `${quarkdownPath} c ${command} "${resolvedFilePath}"`;
@@ -49,7 +60,7 @@ async function executeQuarkdownCommand(command: string, filePath: string, output
             vscode.window.showErrorMessage(`Failed to create output directory: ${err}`);
             throw err; // エラーを再スローして呼び出し元で処理できるようにする
         }
-        fullCommand = `${quarkdownPath} c ${command} -o "${outputDir}" "${filePath}"`;
+        fullCommand = `${quarkdownPath} c ${command} -o "${outputDir}" "${resolvedFilePath}"`; // ここをresolvedFilePathに修正
     }
 
     return new Promise((resolve, reject) => {
@@ -159,8 +170,17 @@ async function checkFileExistenceWithRetry(filePath: string, retries: number = 5
 }
 
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) { // activate関数をasyncにする
     console.log('Quarkdown Slides extension is now active!');
+
+    try {
+        // Quarkdownコマンドのパスを事前に確認
+        await getQuarkdownPath();
+    } catch (error) {
+        // Quarkdownが見つからない場合、エラーメッセージはgetQuarkdownPath内で表示済み
+        console.error('Failed to activate Quarkdown Slides extension due to missing Quarkdown command.');
+        return; // 拡張機能の起動を停止
+    }
 
     let previewDisposable = vscode.commands.registerCommand('quarkdown-slides.preview', async () => {
         const editor = vscode.window.activeTextEditor;

@@ -40,7 +40,7 @@ Initial release of Quarp.
 
 Fixed an issue where network folders could not be referenced.
 
-### 0.0.3
+### 0.0.3-0.0.7
 
 - Added support for .qd files.
 - Enabled preview for documents containing Japanese characters.
@@ -113,7 +113,7 @@ Quarpの初回リリース。
 
 ネットワークフォルダを参照できない事象を修正しました。
 
-### 0.0.3
+### 0.0.3-.0.0.7
 
 - .qdファイルを対象にしました。
 - docmaneに日本語があってもプレビューできるように対応。

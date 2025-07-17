@@ -2,7 +2,7 @@
   "name": "quarp",
   "displayName": "Quarp",
   "description": "quarkdown previewer.",
-  "version": "0.0.4",
+  "version": "0.0.7",
   "publisher": "OuchiniKaeru",
   "icon": "images/icon.png",
   "repository": {
@@ -14,6 +14,13 @@
   },
   "categories": [
     "Other"
+  ],
+  "keywords": [
+    "quarkdown",
+    "preview",
+    "markdown",
+    "slides",
+    "quarp"
   ],
   "license": "MIT",
   "activationEvents": [

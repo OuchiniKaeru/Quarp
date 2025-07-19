@@ -2,7 +2,7 @@
   "name": "quarp",
   "displayName": "Quarp",
   "description": "quarkdown previewer.",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "publisher": "OuchiniKaeru",
   "icon": "images/icon.png",
   "repository": {
